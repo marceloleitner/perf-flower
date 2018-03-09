@@ -3,7 +3,7 @@
 # Run rule-install-rate on a pre-generated set of rules
 #
 # Author: Marcelo Ricardo Leitner, 2018
-# GPLv2
+# GPLv3
 #
 
 iface=p5p1

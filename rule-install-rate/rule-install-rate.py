@@ -38,7 +38,7 @@
 #     compared to 'tc flower cumulative' and the socket/rtnl stuff.
 #
 # Author: Marcelo Ricardo Leitner
-# License: GPLv2
+# License: GPLv3
 #
 
 import os
