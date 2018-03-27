@@ -6,11 +6,67 @@
 # GPLv3
 #
 
-iface=p5p1
+iface=
 rules=40000
 skip=""   # skip_hw / skip_sw   (place holder, neither are supported :)
-
 batchfile=tc-rules.batch
+
+usage()
+{
+	echo "Usage: $0 -i <interface> [-n count] [-f skip_flag]"
+	echo "where count must be 0 < count < 100000,"
+	echo "      if specified, skip_flag = <skip_sw|skip_hw>"
+	echo "      although neither flags are supported by the perf probes yet."
+	exit 1
+}
+
+parse_cmdline()
+{
+	while [ $# -ge 1 ]; do
+		opt="$1"
+		shift
+		case "$opt" in
+		-i)
+			iface="$1"
+			shift
+			if [ -z "$iface" ]; then
+				echo "Invalid interface '$iface'."
+				usage
+			fi
+			if [ ! -e "/sys/class/net/$iface" ]; then
+				echo "Interface '$iface' not found."
+			fi
+			;;
+		-n)
+			rules="$1"
+			shift
+			if [ "$rules" -le 0 -o "$rules" -gt 100000 ]; then
+				echo "Invalid count of rules '$rules'."
+				usage
+			fi
+			;;
+		-f)
+			skip="$1"
+			shift
+			if [ "$skip" != skip_hw -a "$skip" != skip_sw ]; then
+				echo "Invalid skip flag '$skip'."
+				usage
+			fi
+			;;
+		-h)
+			usage
+			;;
+		*)
+			echo "Invalid argument '$opt'."
+			usage
+		esac
+	done
+
+	if [ -z "$iface" ]; then
+		echo "You must specify one interface."
+		usage
+	fi
+}
 
 
 check_rpm()
@@ -88,6 +144,7 @@ generate_report()
 
 main()
 {
+	parse_cmdline "$@"
 	check_system
 	cleanup
 	prep_batch
