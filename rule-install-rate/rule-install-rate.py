@@ -172,7 +172,11 @@ def install_probe_codeline(probe, code):
         "perf probe -m cls_flower -a flower:%s=fl_change:%d" % (probe, line)])
 
 def install_sw_probe():
-    install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(head, &fnew->mkey))')
+    try:
+        install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(head, &fnew->mkey))')
+    except:
+        # Last attempt. If it also fails, abort everything.
+        install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(fnew->mask, &fnew->mkey))')
 
 def install_hw_probe():
     install_probe_codeline('fl_change_hw', 'err = fl_hw_replace_filter')
