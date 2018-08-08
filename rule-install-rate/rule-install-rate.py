@@ -147,7 +147,9 @@ def clear_perf_probes():
 
 def load_module():
     # make sure flower is loaded, otherwise we can't install the probes
-    os.system('modprobe cls_flower')
+    ret = os.system('modprobe cls_flower')
+    if ret:
+        sys.exit(ret)
 
 def install_entry_probe():
     ret = os.system('perf probe -m cls_flower -a flower:fl_change_entry=fl_change')
