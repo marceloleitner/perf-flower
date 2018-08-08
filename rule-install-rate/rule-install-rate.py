@@ -186,15 +186,19 @@ def install_fold_probe():
 
 def capture():
     global check_output, check_call
-    from subprocess import check_output, check_call
+    from subprocess import check_output, check_call, CalledProcessError
 
     clear_perf_probes()
     load_module()
-    install_entry_probe()
-    install_ret_probe()
-    install_sw_probe()
-    install_hw_probe()
-    install_fold_probe()
+    try:
+        install_entry_probe()
+        install_ret_probe()
+        install_sw_probe()
+        install_hw_probe()
+        install_fold_probe()
+    except CalledProcessError as err:
+        print('ERROR: Flower code has changed and we couldn\'t install a probe.')
+        raise
 
     print 'Excellent, all probes were installed.'
     print 'Executing perf record.'
