@@ -100,13 +100,24 @@ class Probe():
 
             self.change_hw_ts = ts
         elif probe == 'flower__fl_change_fold':
-            delta = ts - self.change_hw_ts
-            if not len(self.xy[2]):
-                new_entry = ( delta, 1 )
-            else:
-                new_entry = ( delta + self.xy[2][-1][0],
-                              1 + self.xy[2][-1][1] )
-            self.xy[2].append(new_entry)
+            # If hw ts is missing, skip_hw was used and we have to use the sw
+            # timestamp instead
+            try:
+                delta = ts - self.change_hw_ts
+                if not len(self.xy[2]):
+                    new_entry = ( delta, 1 )
+                else:
+                    new_entry = ( delta + self.xy[2][-1][0],
+                                  1 + self.xy[2][-1][1] )
+                self.xy[2].append(new_entry)
+            except:
+                delta = ts - self.change_sw_ts
+                if not len(self.xy[1]):
+                    new_entry = ( delta, 1 )
+                else:
+                    new_entry = ( delta + self.xy[1][-1][0],
+                                  1 + self.xy[1][-1][1] )
+                self.xy[1].append(new_entry)
         elif probe == 'flower__fl_change_ret':
             delta = ts - self.change_entry_ts
             if not len(self.xy[3]):
