@@ -130,8 +130,12 @@ class Probe():
     def save(self):
         fp = open('fl_change.dat', 'w')
         for idx in self.xy:
-            for ts, count in idx:
-                fp.write('%f %d\n' % (ts, count))
+            if len(idx):
+                for ts, count in idx:
+                    fp.write('%f %d\n' % (ts, count))
+            else:
+                # So gnuplot sees this block.
+                fp.write('0 0\n')
             fp.write('\n\n')
         fp.close()
 
