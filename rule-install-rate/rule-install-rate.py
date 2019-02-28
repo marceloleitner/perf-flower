@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Script for inspecting flower rule install rate performance.
 #
@@ -142,13 +142,13 @@ class Probe():
 
 def trace_begin():
     global p
-    print "in trace_begin"
+    print("in trace_begin")
     p = Probe()
 
 def trace_end():
     p.save()
     os.system("gnuplot fl_change.plt")
-    print "in trace_end"
+    print("in trace_end")
 
 def trace_unhandled(event_name, context, event_fields_dict, perf_sample_dict={}):
     ts = event_fields_dict['common_s'] + event_fields_dict['common_ns']/1000000000.0
@@ -180,6 +180,7 @@ def install_probe_codeline(probe, code):
     # Find at which line we should install the probe
     output = check_output(["/bin/sh", "-c",
         "perf probe -m cls_flower -L fl_change | grep -F '%s'" % code])
+    output = output.decode()
     line = int(output.strip().split(' ')[0])
 
     # Install the probe
@@ -187,15 +188,14 @@ def install_probe_codeline(probe, code):
         "perf probe -m cls_flower -a flower:%s=fl_change:%d" % (probe, line)])
 
 def install_sw_probe():
-
     try:
         install_probe_codeline('fl_change_sw', 'if (!fold && __fl_lookup(fnew->mask, &fnew->mkey))')
     except:
-	    try:
-		install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(head, &fnew->mkey))')
-	    except:
-		# Last attempt. If it also fails, abort everything.
-		install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(fnew->mask, &fnew->mkey))')
+        try:
+            install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(head, &fnew->mkey))')
+        except:
+            # Last attempt. If it also fails, abort everything.
+            install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(fnew->mask, &fnew->mkey))')
 
 def install_hw_probe():
     install_probe_codeline('fl_change_hw', 'err = fl_hw_replace_filter')
@@ -219,20 +219,20 @@ def capture():
         print('ERROR: Flower code has changed and we couldn\'t install a probe.')
         raise
 
-    print 'Excellent, all probes were installed.'
-    print 'Executing perf record.'
+    print('Excellent, all probes were installed.')
+    print('Executing perf record.')
     cmd = ['perf', 'record', '-e', 'flower:*', '-aR', '--' ]
     cmd.extend(sys.argv[3:])
-    print cmd
+    print(cmd)
     os.execvp('perf', cmd)
 
 #
 # application mode handling
 #
 if len(sys.argv) == 1:
-    print """Usage:
+    print("""Usage:
 {0} capture -- <command>    capture flower stats during <command> execution
-{0} parse                   parse a perf.data sample and produce outputs""".format(sys.argv[0])
+{0} parse                   parse a perf.data sample and produce outputs""".format(sys.argv[0]))
     sys.exit(0)
 elif sys.argv[1] == 'capture':
     # Capture mode

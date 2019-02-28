@@ -94,15 +94,15 @@ generate_batch()
 {
 	s=$(date +%s)
 	echo "Generating $batchfile..."
-	python > $batchfile <<EOF
+	python3 > $batchfile <<EOF
 for i in range($rules):
 	a=i & 0xff
 	b=(i & 0xff00) >> 8
 	c=(i & 0xff0000) >> 16
-	print "filter add dev $iface parent ffff: protocol ip prio 1 flower $skip \
+	print("filter add dev $iface parent ffff: protocol ip prio 1 flower $skip \
 	       src_mac ec:13:db:%02X:%02X:%02X dst_mac ec:14:c2:%02X:%02X:%02X \
 	       src_ip 56.%d.%d.%d dst_ip 55.%d.%d.%d \
-	       action drop" % (a, b, c, c, b, a, a, b, c, c, b, a)
+	       action drop" % (a, b, c, c, b, a, a, b, c, c, b, a))
 EOF
 	e=$(date +%s)
 	echo "Generated $rules rules in $((e-s)) seconds."
