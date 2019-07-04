@@ -166,6 +166,39 @@ def load_module():
     if ret:
         sys.exit(ret)
 
+def get_kernel_version():
+    fp = open('/proc/version', 'r')
+    version = fp.readline()
+    del fp
+
+    version = version[14:]
+    version = version[:version.index(' ')]
+
+    return version
+
+def perf_probe_setup():
+    """Perf can't locate the source for a kernel build with 'make pkg-rpm', so
+    we need to specify the source dir."""
+    global perf_probe_args
+
+    version = get_kernel_version()
+
+    dirname = "/lib/modules/{0}/source".format(version)
+    while True:
+        try:
+            tgt = os.readlink(dirname)
+            dirname = tgt
+        except OSError as err:
+            if err.errno == 22:
+                # Not a link anymore, so we fount it
+                break
+            dirname = ""
+
+    if len(dirname):
+        perf_probe_args = "-s {0}".format(dirname)
+    else:
+        perf_probe_args = ""
+
 def install_entry_probe():
     ret = os.system('perf probe -m cls_flower -a flower:fl_change_entry=fl_change')
     if ret:
@@ -179,7 +212,7 @@ def install_ret_probe():
 def install_probe_codeline(probe, code):
     # Find at which line we should install the probe
     output = check_output(["/bin/sh", "-c",
-        "perf probe -m cls_flower -L fl_change | grep -F '%s'" % code])
+        "perf probe %s -m cls_flower -L fl_change | grep -F '%s'" % (perf_probe_args, code)])
     output = output.decode()
     line = int(output.strip().split(' ')[0])
 
@@ -209,6 +242,7 @@ def capture():
 
     clear_perf_probes()
     load_module()
+    perf_probe_setup()
     try:
         install_entry_probe()
         install_ret_probe()
