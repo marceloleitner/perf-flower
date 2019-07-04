@@ -81,10 +81,23 @@ check_rpm()
 	return $ret
 }
 
+check_perf()
+{
+	if perf probe -L kmalloc >& /dev/null; then
+		return
+	fi
+	if perf probe -s /lib/modules/$(uname -r)/source/ -L kmalloc; then
+		return
+	fi
+
+	echo "Perf can't list code. You're missing debuginfos."
+	exit 1
+}
+
 check_system()
 {
-	kerneldebug="kernel-debuginfo-$(uname -r)"
-	check_rpm gnuplot $kerneldebug perf
+	check_rpm gnuplot perf
+	check_perf
 }
 
 #
