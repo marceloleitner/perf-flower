@@ -118,7 +118,7 @@ class Probe():
                     new_entry = ( delta + self.xy[1][-1][0],
                                   1 + self.xy[1][-1][1] )
                 self.xy[1].append(new_entry)
-        elif probe == 'flower__fl_change_ret':
+        elif probe.startswith('flower__fl_change_ret'):
             delta = ts - self.change_entry_ts
             if not len(self.xy[3]):
                 new_entry = ( delta, 1 )
