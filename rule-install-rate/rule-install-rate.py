@@ -223,12 +223,18 @@ def install_probe_codeline(probe, code):
 def install_sw_probe():
     try:
         install_probe_codeline('fl_change_sw', 'if (!fold && __fl_lookup(fnew->mask, &fnew->mkey))')
+        return
     except:
-        try:
-            install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(head, &fnew->mkey))')
-        except:
-            # Last attempt. If it also fails, abort everything.
-            install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(fnew->mask, &fnew->mkey))')
+        pass
+
+    try:
+        install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(head, &fnew->mkey))')
+        return
+    except:
+        pass
+
+    # Last attempt. If it also fails, abort everything.
+    install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(fnew->mask, &fnew->mkey))')
 
 def install_hw_probe():
     install_probe_codeline('fl_change_hw', 'err = fl_hw_replace_filter')
