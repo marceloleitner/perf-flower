@@ -222,6 +222,13 @@ def install_probe_codeline(probe, code):
 
 def install_sw_probe():
     try:
+        # After 1f17f7742eeb ("net: sched: flower: insert filter to ht before offloading it to hw")
+        install_probe_codeline('fl_change_sw', 'err = fl_ht_insert_unique(fnew, fold, &in_ht);')
+        return
+    except:
+        pass
+
+    try:
         install_probe_codeline('fl_change_sw', 'if (!fold && __fl_lookup(fnew->mask, &fnew->mkey))')
         return
     except:
