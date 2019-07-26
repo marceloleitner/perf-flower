@@ -199,6 +199,7 @@ def perf_probe_setup():
                 # Not a link anymore, so we fount it
                 break
             dirname = ""
+            break
 
     if len(dirname):
         perf_probe_args = "-s {0}".format(dirname)
