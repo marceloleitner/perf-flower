@@ -42,6 +42,7 @@
 #
 
 import os
+import os.path
 import sys
 
 #
@@ -187,7 +188,12 @@ def perf_probe_setup():
     while True:
         try:
             tgt = os.readlink(dirname)
-            dirname = tgt
+            if tgt[0] == os.path.sep:
+                dirname = tgt
+            else:
+                dirs = dirname.split(os.path.sep)
+                dirs[-1] = tgt
+                dirname = os.path.sep.join(dirs)
         except OSError as err:
             if err.errno == 22:
                 # Not a link anymore, so we fount it
