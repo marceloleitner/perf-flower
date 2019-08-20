@@ -331,7 +331,8 @@ def install_hw_probe():
     install_probe_codeline('fl_change_hw', 'err = fl_hw_replace_filter')
 
 def install_fold_probe():
-    install_probe_codeline('fl_change_fold', 'if (fold)')
+    # FIXME: Validate throughout versions
+    install_probe_codeline('fl_change_fold', 'if (!tc_in_hw(fnew->flags))')
 
 def capture():
     global check_output, check_call
