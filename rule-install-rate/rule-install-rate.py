@@ -55,6 +55,7 @@ class Probe():
         self.first_ts = 0.0
         self.xy = [ [], [], [], [] ]
         self.write_gnuplot_cfg(description)
+        self.cpu = []
 
     def write_gnuplot_cfg(self, description):
         fp = open('fl_change.plt', 'w')
@@ -78,55 +79,128 @@ class Probe():
         """.format(description))
         fp.close()
 
-    def add_point(self, ts, probe):
+    def add_cpu(self, cpu):
+        for i in range(cpu - len(self.cpu) + 1):
+            self.cpu.append({ })
+
+    def reset_ts(self, cpu):
+        if self.has_ts(cpu, 'change_entry'):
+            last_entry = self.get_ts(cpu, 'change_entry')
+        elif self.has_ts(cpu, 'last_entry'):
+            last_entry = self.get_ts(cpu, 'last_entry')
+        else:
+            last_entry = None
+
+        self.cpu[cpu] = { }
+
+        if last_entry != None:
+            self.set_ts(cpu, 'last_entry', last_entry)
+
+    def set_ts(self, cpu, ts, value):
+        self.cpu[cpu][ts] = value
+
+    def has_ts(self, cpu, ts):
+        return ts in self.cpu[cpu].keys()
+
+    def get_ts(self, cpu, ts):
+        return self.cpu[cpu][ts]
+
+    def add_point(self, ts, probe, cpu):
+        self.add_cpu(cpu)
+
         if probe == 'flower__fl_change_entry':
-            self.change_entry_ts = ts
+            self.reset_ts(cpu)
+            self.set_ts(cpu, 'change_entry', ts)
             if self.first_ts == 0.0:
                 self.first_ts = ts
-                count = 0
-            else:
-                count = self.xy[0][-1][1]
-            count += 1
-            self.xy[0].append((ts-self.first_ts, count))
         elif probe == 'flower__fl_change_sw':
-            self.change_sw_ts = ts
+            self.set_ts(cpu, 'change_sw', ts)
         elif probe == 'flower__fl_change_hw':
-            delta = ts - self.change_sw_ts
+            self.set_ts(cpu, 'change_hw', ts)
+        elif probe == 'flower__fl_change_fold':
+            self.set_ts(cpu, 'change_fold', ts)
+        elif probe.startswith('flower__fl_change_ret'):
+            self.set_ts(cpu, 'change_ret', ts)
+            self.finish_point(cpu)
+            self.reset_ts(cpu)
+
+    def finish_point(self, cpu):
+#             'fl_change.dat' index 0 using 1:2 title "{0} cumulative" with lines, \
+#             'fl_change.dat' index 1 using 1:2 title "{0} sw part" with lines, \
+#             'fl_change.dat' index 2 using 1:2 title "{0} hw part" with lines, \
+#             'fl_change.dat' index 3 using 1:2 title "{0} just flower" with lines, \
+
+        # Sanity check. After rtnl_lock removal, it's rescheduling and we can't
+        # track that properly.
+        if not self.has_ts(cpu, 'change_entry') or \
+           not self.has_ts(cpu, 'change_sw') or \
+           not self.has_ts(cpu, 'change_fold') or \
+           not self.has_ts(cpu, 'change_ret'):
+            print('Skipping point: missing data')
+            return
+
+        if self.get_ts(cpu, 'change_entry') > self.get_ts(cpu, 'change_sw') or \
+           self.get_ts(cpu, 'change_sw') > self.get_ts(cpu, 'change_fold') or \
+           self.get_ts(cpu, 'change_fold') > self.get_ts(cpu, 'change_ret'):
+            print('Skipping point: invalid stamp')
+            return
+
+        # Populate the first table
+        if len(self.xy[0]):
+            count = self.xy[0][-1][1]
+            last = self.xy[0][-1][0]
+        else:
+            count = 0
+            last = 0
+        count += 1
+        if self.has_ts(cpu, 'last_entry'):
+            delta = self.get_ts(cpu, 'change_entry') - self.get_ts(cpu, 'last_entry')
+        else:
+            delta = self.get_ts(cpu, 'change_entry') - self.first_ts
+        if delta > 0.01:
+            print(delta, self.get_ts(cpu, 'change_entry'), self.get_ts(cpu, 'last_entry'), self.first_ts)
+        self.xy[0].append((delta + last, count))
+
+        # Populate the second table
+        if self.has_ts(cpu, 'change_hw'):
+            delta = self.get_ts(cpu, 'change_hw') - self.get_ts(cpu, 'change_sw')
+            if delta < 0:
+                print("Warning: negative point: %f", delta)
             if not len(self.xy[1]):
-                new_entry = ( delta, 1 )
+                new_entry = (delta, 1)
             else:
-                new_entry = ( delta + self.xy[1][-1][0],
-                              1 + self.xy[1][-1][1] )
+                new_entry = (delta + self.xy[1][-1][0], self.xy[1][-1][1] + 1)
+            self.xy[1].append(new_entry)
+        else:
+            # skip_hw was used and we have to use the next point instead
+            delta = self.get_ts(cpu, 'change_fold') - self.get_ts(cpu, 'change_sw')
+            if not len(self.xy[1]):
+                new_entry = (delta, 1)
+            else:
+                new_entry = (delta + self.xy[1][-1][0], self.xy[1][-1][1] + 1)
             self.xy[1].append(new_entry)
 
-            self.change_hw_ts = ts
-        elif probe == 'flower__fl_change_fold':
-            # If hw ts is missing, skip_hw was used and we have to use the sw
-            # timestamp instead
-            try:
-                delta = ts - self.change_hw_ts
-                if not len(self.xy[2]):
-                    new_entry = ( delta, 1 )
-                else:
-                    new_entry = ( delta + self.xy[2][-1][0],
-                                  1 + self.xy[2][-1][1] )
-                self.xy[2].append(new_entry)
-            except:
-                delta = ts - self.change_sw_ts
-                if not len(self.xy[1]):
-                    new_entry = ( delta, 1 )
-                else:
-                    new_entry = ( delta + self.xy[1][-1][0],
-                                  1 + self.xy[1][-1][1] )
-                self.xy[1].append(new_entry)
-        elif probe.startswith('flower__fl_change_ret'):
-            delta = ts - self.change_entry_ts
-            if not len(self.xy[3]):
-                new_entry = ( delta, 1 )
+        # Populate the third table
+        if self.has_ts(cpu, 'change_hw'):
+            delta = self.get_ts(cpu, 'change_fold') - self.get_ts(cpu, 'change_hw')
+            if delta < 0:
+                print("Warning2: negative point: %f", delta)
+            if not len(self.xy[2]):
+                new_entry = (delta, 1)
             else:
-                new_entry = ( delta + self.xy[3][-1][0],
-                              1 + self.xy[3][-1][1] )
-            self.xy[3].append(new_entry)
+                new_entry = (delta + self.xy[2][-1][0], self.xy[2][-1][1] + 1)
+            self.xy[2].append(new_entry)
+
+        # Populate the fourth table
+        delta = self.get_ts(cpu, 'change_ret') - self.get_ts(cpu, 'change_entry')
+        if delta < 0:
+            print("Warning3: negative point: %f", delta)
+        if not len(self.xy[3]):
+            new_entry = (delta, 1)
+        else:
+            new_entry = (delta + self.xy[3][-1][0], self.xy[3][-1][1] + 1)
+        self.xy[3].append(new_entry)
+
 
     def save(self):
         fp = open('fl_change.dat', 'w')
@@ -153,7 +227,10 @@ def trace_end():
 
 def trace_unhandled(event_name, context, event_fields_dict, perf_sample_dict={}):
     ts = event_fields_dict['common_s'] + event_fields_dict['common_ns']/1000000000.0
-    p.add_point(ts, event_name)
+    try:
+        p.add_point(ts, event_name, perf_sample_dict['sample']['cpu'])
+    except:
+        print("Skipped point")
 
 #
 # Do the data capture
