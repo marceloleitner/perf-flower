@@ -232,7 +232,8 @@ def trace_unhandled(event_name, context, event_fields_dict, perf_sample_dict={})
     try:
         p.add_point(ts, event_name, perf_sample_dict['sample']['cpu'])
     except:
-        print("Skipped point")
+        print("Failed to handle point!")
+        raise
 
 #
 # Do the data capture
