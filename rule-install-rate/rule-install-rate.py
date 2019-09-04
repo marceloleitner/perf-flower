@@ -105,21 +105,24 @@ class Probe():
     def get_ts(self, cpu, ts):
         return self.cpu[cpu][ts]
 
+    def probe_match(self, probe, wanted, cpu, ts):
+        return probe.startswith(wanted) and not self.has_ts(cpu, ts)
+
     def add_point(self, ts, probe, cpu):
         self.add_cpu(cpu)
 
-        if probe == 'flower__fl_change_entry':
+        if self.probe_match(probe, 'flower__fl_change_entry', cpu, 'change_entry'):
             self.reset_ts(cpu)
             self.set_ts(cpu, 'change_entry', ts)
             if self.first_ts == 0.0:
                 self.first_ts = ts
-        elif probe == 'flower__fl_change_sw':
+        elif self.probe_match(probe, 'flower__fl_change_sw', cpu, 'change_sw'):
             self.set_ts(cpu, 'change_sw', ts)
-        elif probe == 'flower__fl_change_hw':
+        elif self.probe_match(probe, 'flower__fl_change_hw', cpu, 'change_hw'):
             self.set_ts(cpu, 'change_hw', ts)
-        elif probe == 'flower__fl_change_fold':
+        elif self.probe_match(probe, 'flower__fl_change_fold', cpu, 'change_fold'):
             self.set_ts(cpu, 'change_fold', ts)
-        elif probe.startswith('flower__fl_change_ret'):
+        elif self.probe_match(probe, 'flower__fl_change_ret', cpu, 'change_ret'):
             self.set_ts(cpu, 'change_ret', ts)
             self.finish_point(cpu)
             self.reset_ts(cpu)
