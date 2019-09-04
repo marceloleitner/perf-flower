@@ -152,7 +152,7 @@ cleanup()
 
 do_test()
 {
-	./rule-install-rate.py capture -- tc -b $batchfile
+	./rule-install-rate.py capture -- taskset -c 1 tc -b $batchfile
 }
 
 generate_report()
