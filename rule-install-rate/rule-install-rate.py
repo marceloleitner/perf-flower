@@ -155,10 +155,12 @@ class Probe():
         count += 1
         if self.has_ts(cpu, 'last_entry'):
             delta = self.get_ts(cpu, 'change_entry') - self.get_ts(cpu, 'last_entry')
+            if delta > 0.01:
+                print(delta, self.get_ts(cpu, 'change_entry'), self.get_ts(cpu, 'last_entry'), self.first_ts)
         else:
             delta = self.get_ts(cpu, 'change_entry') - self.first_ts
-        if delta > 0.01:
-            print(delta, self.get_ts(cpu, 'change_entry'), self.get_ts(cpu, 'last_entry'), self.first_ts)
+            if delta > 0.01:
+                print(delta, self.get_ts(cpu, 'change_entry'), self.first_ts)
         self.xy[0].append((delta + last, count))
 
         # Populate the second table
