@@ -83,6 +83,11 @@ check_rpm()
 
 check_perf()
 {
+	if ! type -Pp perf 2> /dev/null; then
+		echo "Please install perf."
+		exit 1
+	fi
+
 	if perf probe -L kmalloc >& /dev/null; then
 		return
 	fi
@@ -96,7 +101,7 @@ check_perf()
 
 check_system()
 {
-	check_rpm gnuplot perf
+	check_rpm gnuplot
 	check_perf
 }
 
