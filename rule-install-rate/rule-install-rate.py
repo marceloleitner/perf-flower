@@ -57,7 +57,26 @@ class Probe():
         self.write_gnuplot_cfg(description)
         self.cpu = []
 
-    def write_gnuplot_cfg(self, description):
+    def write_gnuplot_cfg_simple(self, description):
+        fp = open('fl_change.plt', 'w')
+        fp.write("""
+        set terminal pngcairo size 1024,768 dashed
+        set output "fl_change.png"
+        set title "Flower rule install performance\\nTime consumed and install rate"
+        set xlabel "Datapath flows"
+        set ylabel "Time (s)"
+        set y2label "Insert rate (flows/s)"
+        set ytics nomirror
+        set y2tics
+
+        plot \
+             'fl_change.dat' index 0 using 1:2 title "Time" with lines, \
+             'fl_change.dat' index 0 every ::1 using 1:($1/$2 < 500000 ? $1/$2 : 0) \
+                title "{0} acc insert rate" axes x1y2 with lines
+        """.format(description))
+        fp.close()
+
+    def write_gnuplot_cfg_complete(self, description):
         fp = open('fl_change.plt', 'w')
         fp.write("""
         set terminal pngcairo size 1024,768 dashed
@@ -78,6 +97,12 @@ class Probe():
                 title "{0} acc insert rate" axes x1y2 with lines
         """.format(description))
         fp.close()
+
+    def write_gnuplot_cfg(self, description):
+        if simple:
+            self.write_gnuplot_cfg_simple(description)
+        else:
+            self.write_gnuplot_cfg_complete(description)
 
     def add_cpu(self, cpu):
         for i in range(cpu - len(self.cpu) + 1):
@@ -109,6 +134,8 @@ class Probe():
         return probe.startswith(wanted) and not self.has_ts(cpu, ts)
 
     def add_point(self, ts, probe, cpu):
+        if simple:
+            cpu = 0
         self.add_cpu(cpu)
 
         if self.probe_match(probe, 'flower__fl_change_entry', cpu, 'change_entry'):
@@ -116,7 +143,13 @@ class Probe():
             self.set_ts(cpu, 'change_entry', ts)
             if self.first_ts == 0.0:
                 self.first_ts = ts
-        elif self.probe_match(probe, 'flower__fl_change_sw', cpu, 'change_sw'):
+            if simple:
+                self.finish_point(cpu)
+                self.reset_ts(cpu)
+        if simple:
+            return
+
+        if self.probe_match(probe, 'flower__fl_change_sw', cpu, 'change_sw'):
             self.set_ts(cpu, 'change_sw', ts)
         elif self.probe_match(probe, 'flower__fl_change_hw', cpu, 'change_hw'):
             self.set_ts(cpu, 'change_hw', ts)
@@ -127,7 +160,28 @@ class Probe():
             self.finish_point(cpu)
             self.reset_ts(cpu)
 
-    def finish_point(self, cpu):
+    def finish_point_simple(self):
+#             'fl_change.dat' index 0 using 1:2 title "Time" with lines, \
+#             'fl_change.dat' index 0 every ::1 using 1:($1/$2) \
+        cpu = 0
+
+        if not self.has_ts(cpu, 'change_entry'):
+            print('Skipping point: missing data')
+            return
+
+        # Populate the first table
+        if len(self.xy[0]):
+            count = self.xy[0][-1][0]
+            last = self.xy[0][-1][1]
+        else:
+            count = 0
+            last = 0
+        count += 1
+        delta = self.get_ts(cpu, 'change_entry') - self.first_ts
+        self.xy[0].append((count, delta))
+
+
+    def finish_point_complete(self, cpu):
 #             'fl_change.dat' index 0 using 1:2 title "{0} cumulative" with lines, \
 #             'fl_change.dat' index 1 using 1:2 title "{0} sw part" with lines, \
 #             'fl_change.dat' index 2 using 1:2 title "{0} hw part" with lines, \
@@ -206,13 +260,18 @@ class Probe():
             new_entry = (delta + self.xy[3][-1][0], self.xy[3][-1][1] + 1)
         self.xy[3].append(new_entry)
 
+    def finish_point(self, cpu):
+        if simple:
+            self.finish_point_simple()
+        else:
+            self.finish_point_complete(cpu)
 
     def save(self):
         fp = open('fl_change.dat', 'w')
         for idx in self.xy:
             if len(idx):
                 for ts, count in idx:
-                    fp.write('%f %d\n' % (ts, count))
+                    fp.write('%f %f\n' % (ts, count))
             else:
                 # So gnuplot sees this block.
                 fp.write('0 0\n')
@@ -279,7 +338,7 @@ def perf_probe_setup():
                 dirname = os.path.sep.join(dirs)
         except OSError as err:
             if err.errno == 22:
-                # Not a link anymore, so we fount it
+                # Not a link anymore, so we found it
                 break
             dirname = ""
             break
@@ -377,11 +436,20 @@ elif sys.argv[1] == 'capture':
     capture()
 elif sys.argv[1] == 'parse':
     # parse requested. Re-execute through perf
-    os.execvp('perf', ('perf', 'script', '-s', sys.argv[0], '+parse'))
+    if len(sys.argv) > 2:
+        simple = sys.argv[2]
+    else:
+        simple = '0'
+    os.execvp('perf', ('perf', 'script', '-s', sys.argv[0], '+parse', simple))
 elif sys.argv[1] == '+parse':
     # called from within perf script environment
     sys.path.append(os.environ['PERF_EXEC_PATH'] + \
             '/scripts/python/Perf-Trace-Util/lib/Perf/Trace')
+
+    if len(sys.argv) > 2 and sys.argv[2] == '1':
+        simple = True
+    else:
+        simple = False
 
     from perf_trace_context import *
     from Core import *
