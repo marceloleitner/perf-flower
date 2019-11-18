@@ -85,7 +85,7 @@ set y2tics
 
 plot \\
      'fl_change-rate.dat' using (\$1-$first) title "Time" with lines, \\
-     'fl_change-rate.dat' every ::1 using :(\$0/(\$1-$first) < 20000 ? \$0/(\$1-$first) : 0) \\
+     'fl_change-rate.dat' every ::1 using :(\$0/(\$1-$first) < 100000 ? \$0/(\$1-$first) : 0) \\
         title 'fl\\_change rate' axes x1y2 with lines
 _EOF_
 
