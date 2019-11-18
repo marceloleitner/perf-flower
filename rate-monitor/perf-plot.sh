@@ -69,11 +69,12 @@ title="${kernel//_/\\\\_}\n$cpumodel - $ncpu CPUs${@:+\\n}${@//_/\\\\_}"
 # Call frequency
 #
 
-awk '/fl_change$/{print $2}' <<<"$pscript" | sort -n > fl_change-rate.dat
+rate_file="fl_change-rate"
+awk '/fl_change$/{print $2}' <<<"$pscript" | sort -n > $rate_file.dat
 
-first=$(head -n1 fl_change-rate.dat)
+first=$(head -n1 $rate_file.dat)
 
-cat > fl_change-rate.plt <<_EOF_
+cat > $rate_file.plt <<_EOF_
 set terminal pngcairo size 1024,768 dashed
 set output "fl_change-rate.png"
 set title "Flower rule install performance\\nTime consumed and install rate\\n$title"
@@ -84,27 +85,28 @@ set ytics nomirror
 set y2tics
 
 plot \\
-     'fl_change-rate.dat' using (\$1-$first) title "Time" with lines, \\
-     'fl_change-rate.dat' every ::1 using :(\$0/(\$1-$first) < 100000 ? \$0/(\$1-$first) : 0) \\
+     '$rate_file.dat' using (\$1-$first) title "Time" with lines, \\
+     '$rate_file.dat' every ::1 using :(\$0/(\$1-$first) < 100000 ? \$0/(\$1-$first) : 0) \\
         title 'fl\\_change rate' axes x1y2 with lines
 _EOF_
 
-gnuplot fl_change-rate.plt
+gnuplot $rate_file.plt
 
 #
 # Call durations
 #
 
+duration_file="fl_change-call_duration"
 #perf script | grep -e probe:fl_change: -e probe:fl_change__return: | awk '{print $4}' |\
 #	sed s/:// | sed -e 'N;s/\n/ /' > fl_change.dat
 # Serialize per process, and then per timestamp
 grep -e 'fl_change$' -e 'fl_change__return' <<<"$pscript" |\
 	awk '{ print $2 }' |\
 	sed -e 'N;s/\n/ /' |\
-	sort -n > fl_change-call_duration.dat
+	sort -n > $duration_file.dat
 
-echo >> fl_change-call_duration.dat
-echo >> fl_change-call_duration.dat
+echo >> $duration_file.dat
+echo >> $duration_file.dat
 
 #perf script | grep -e probe:$tc_new: -e probe:${tc_new}__return: | awk '{print $4}' |\
 #	sed s/:// | sed -e 'N;s/\n/ /' >> fl_change.dat
@@ -112,10 +114,10 @@ echo >> fl_change-call_duration.dat
 grep -e "${tc_new}$" -e "${tc_new}__return" <<<"$pscript" |\
 	awk '{ print $2 }' |\
 	sed -e 'N;s/\n/ /' |\
-	sort -n >> fl_change-call_duration.dat
+	sort -n >> $duration_file.dat
 
-echo >> fl_change-call_duration.dat
-echo >> fl_change-call_duration.dat
+echo >> $duration_file.dat
+echo >> $duration_file.dat
 
 #perf script | grep -e probe:mlx5e_configure_flower: -e probe:mlx5e_configure_flower__return: | awk '{print $4}' |\
 #	sed s/:// | sed -e 'N;s/\n/ /' >> fl_change.dat
@@ -123,11 +125,11 @@ echo >> fl_change-call_duration.dat
 grep -e "mlx5e_configure_flower$" -e "mlx5e_configure_flower__return" <<<"$pscript" |\
 	awk '{ print $2 }' |\
 	sed -e 'N;s/\n/ /' |\
-	sort -n >> fl_change-call_duration.dat
+	sort -n >> $duration_file.dat
 
-cat > fl_change-call_duration.plt <<_EOF_
+cat > $duration_file.plt <<_EOF_
 set terminal pngcairo size 1024,768 dashed
-set output "fl_change-call_duration.png"
+set output "$duration_file.png"
 set title "Flower rule install performance\\nTime consumed and install rate\\n$title"
 set xlabel "Datapath flows"
 set ylabel "Time (s)"
@@ -136,20 +138,21 @@ set ytics nomirror
 set y2tics
 
 plot \\
-     'fl_change-call_duration.dat' index 0 using (\$2-\$1) title 'fl\\_change call duration' with lines, \\
-     'fl_change-call_duration.dat' index 1 using (\$2-\$1) title '${tc_new//_/\\_} call duration' with lines, \\
-     'fl_change-call_duration.dat' index 2 using (\$2-\$1) title 'mlx5e\\_configure\\_flower call duration' with lines, \\
-     'fl_change-call_duration.dat' index 0 using (\$2-\$1) title 'fl\\_change cumulative time' axes x1y2 with lines smooth cumulative, \\
-     'fl_change-call_duration.dat' index 1 using (\$2-\$1) title '${tc_new//_/\\_} cumulative time' axes x1y2 with lines smooth cumulative, \\
-     'fl_change-call_duration.dat' index 2 using (\$2-\$1) title 'mlx5e\\_configure\\_flower cumulative time' axes x1y2 with lines smooth cumulative
+     '$duration_file.dat' index 0 using (\$2-\$1) title 'fl\\_change call duration' with lines, \\
+     '$duration_file.dat' index 1 using (\$2-\$1) title '${tc_new//_/\\_} call duration' with lines, \\
+     '$duration_file.dat' index 2 using (\$2-\$1) title 'mlx5e\\_configure\\_flower call duration' with lines, \\
+     '$duration_file.dat' index 0 using (\$2-\$1) title 'fl\\_change cumulative time' axes x1y2 with lines smooth cumulative, \\
+     '$duration_file.dat' index 1 using (\$2-\$1) title '${tc_new//_/\\_} cumulative time' axes x1y2 with lines smooth cumulative, \\
+     '$duration_file.dat' index 2 using (\$2-\$1) title 'mlx5e\\_configure\\_flower cumulative time' axes x1y2 with lines smooth cumulative
 _EOF_
 
-gnuplot fl_change-call_duration.plt
+gnuplot $duration_file.plt
 
 #
 # Time spent dumping stats
 #
 
+stats_file="fl_change-stats"
 #sed -n "/ $start_time:/,/ $end_time:/{/probe:tc_dump_tfilter/p}" <<<"$script" |\
 #	awk '{print $4}' | sed s/:// | sed -e 'N;s/\n/ /' > fl_change.dat
 # Serialize per process, and then per timestamp
@@ -158,11 +161,11 @@ grep -e "tc_dump_tfilter$" -e "tc_dump_tfilter__return" <<<"$pscript" |\
 	awk '{ print $2 }' |\
 	sed -e 'N;s/\n/ /' |\
 	sort -n \
-	> fl_change-stats.dat
+	> $stats_file.dat
 
-cat > fl_change-stats.plt <<_EOF_
+cat > $stats_file.plt <<_EOF_
 set terminal pngcairo size 1024,768 dashed
-set output "fl_change-stats.png"
+set output "$stats_file.png"
 set title "Stats monitoring impact, call duration and acumulated time\n$title"
 set xlabel "Test time (s)"
 set ylabel "Time spent (s)"
@@ -171,12 +174,12 @@ set ytics nomirror
 set y2tics
 
 plot \\
-     'fl_change-stats.dat' index 0 using (\$1-$start_time):(\$2-\$1) title 'tc\\_dump\\_tfilter call duration' with points, \\
-     'fl_change-stats.dat' index 0 using (\$1-$start_time):(\$2-\$1) title "acumulated call duration" axes x1y2 with lines smooth cumulative
+     '$stats_file.dat' index 0 using (\$1-$start_time):(\$2-\$1) title 'tc\\_dump\\_tfilter call duration' with points, \\
+     '$stats_file.dat' index 0 using (\$1-$start_time):(\$2-\$1) title "acumulated call duration" axes x1y2 with lines smooth cumulative
 _EOF_
 
-if grep -q . fl_change-stats.dat; then
-	gnuplot fl_change-stats.plt
+if grep -q . $stats_file.dat; then
+	gnuplot $stats_file.plt
 else
-	rm -f fl_change-stats.png
+	rm -f $stats_file.png
 fi
