@@ -66,121 +66,136 @@ echo "Kernel: $kernel"
 # Common title across the graphs
 title="${kernel//_/\\\\_}\n$cpumodel - $ncpu CPUs${@:+\\n}${@//_/\\\\_}"
 
+
 #
 # Call frequency
 #
+rate()
+{
+	rate_file="fl_change-rate"
+	awk '/fl_change$/{print $2}' <<<"$pscript" | sort -n > $rate_file.dat
 
-rate_file="fl_change-rate"
-awk '/fl_change$/{print $2}' <<<"$pscript" | sort -n > $rate_file.dat
+	first=$(head -n1 $rate_file.dat)
 
-first=$(head -n1 $rate_file.dat)
+	cat > $rate_file.plt <<-_EOF_
+	set terminal pngcairo size 1024,768 dashed
+	set output "fl_change-rate.png"
+	set title "Flower rule install performance\\nTime consumed and install rate\\n$title"
+	set xlabel "Datapath flows"
+	set ylabel "Time (s)"
+	set y2label "Insert rate (flows/s)"
+	set ytics nomirror
+	set y2tics
 
-cat > $rate_file.plt <<_EOF_
-set terminal pngcairo size 1024,768 dashed
-set output "fl_change-rate.png"
-set title "Flower rule install performance\\nTime consumed and install rate\\n$title"
-set xlabel "Datapath flows"
-set ylabel "Time (s)"
-set y2label "Insert rate (flows/s)"
-set ytics nomirror
-set y2tics
+	plot \\
+	     '$rate_file.dat' using (\$1-$first) title "Time" with lines, \\
+	     '$rate_file.dat' every ::1 using :(\$0/(\$1-$first) < $((avgchange*4)) ? \$0/(\$1-$first) : 0) \\
+		title 'fl\\_change rate' axes x1y2 with lines
+	_EOF_
 
-plot \\
-     '$rate_file.dat' using (\$1-$first) title "Time" with lines, \\
-     '$rate_file.dat' every ::1 using :(\$0/(\$1-$first) < $((avgchange*4)) ? \$0/(\$1-$first) : 0) \\
-        title 'fl\\_change rate' axes x1y2 with lines
-_EOF_
+	gnuplot $rate_file.plt
+}
 
-gnuplot $rate_file.plt
 
 #
 # Call durations
 #
+call_duration()
+{
+	duration_file="fl_change-call_duration"
+	#perf script | grep -e probe:fl_change: -e probe:fl_change__return: | awk '{print $4}' |\
+	#	sed s/:// | sed -e 'N;s/\n/ /' > fl_change.dat
+	# Serialize per process, and then per timestamp
+	grep -e 'fl_change$' -e 'fl_change__return' <<<"$pscript" |\
+		awk '{ print $2 }' |\
+		sed -e 'N;s/\n/ /' |\
+		sort -n > $duration_file.dat
 
-duration_file="fl_change-call_duration"
-#perf script | grep -e probe:fl_change: -e probe:fl_change__return: | awk '{print $4}' |\
-#	sed s/:// | sed -e 'N;s/\n/ /' > fl_change.dat
-# Serialize per process, and then per timestamp
-grep -e 'fl_change$' -e 'fl_change__return' <<<"$pscript" |\
-	awk '{ print $2 }' |\
-	sed -e 'N;s/\n/ /' |\
-	sort -n > $duration_file.dat
+	echo >> $duration_file.dat
+	echo >> $duration_file.dat
 
-echo >> $duration_file.dat
-echo >> $duration_file.dat
+	#perf script | grep -e probe:$tc_new: -e probe:${tc_new}__return: | awk '{print $4}' |\
+	#	sed s/:// | sed -e 'N;s/\n/ /' >> fl_change.dat
+	# Serialize per process, and then per timestamp
+	grep -e "${tc_new}$" -e "${tc_new}__return" <<<"$pscript" |\
+		awk '{ print $2 }' |\
+		sed -e 'N;s/\n/ /' |\
+		sort -n >> $duration_file.dat
 
-#perf script | grep -e probe:$tc_new: -e probe:${tc_new}__return: | awk '{print $4}' |\
-#	sed s/:// | sed -e 'N;s/\n/ /' >> fl_change.dat
-# Serialize per process, and then per timestamp
-grep -e "${tc_new}$" -e "${tc_new}__return" <<<"$pscript" |\
-	awk '{ print $2 }' |\
-	sed -e 'N;s/\n/ /' |\
-	sort -n >> $duration_file.dat
+	echo >> $duration_file.dat
+	echo >> $duration_file.dat
 
-echo >> $duration_file.dat
-echo >> $duration_file.dat
+	#perf script | grep -e probe:mlx5e_configure_flower: -e probe:mlx5e_configure_flower__return: | awk '{print $4}' |\
+	#	sed s/:// | sed -e 'N;s/\n/ /' >> fl_change.dat
+	# Serialize per process, and then per timestamp
+	grep -e "mlx5e_configure_flower$" -e "mlx5e_configure_flower__return" <<<"$pscript" |\
+		awk '{ print $2 }' |\
+		sed -e 'N;s/\n/ /' |\
+		sort -n >> $duration_file.dat
 
-#perf script | grep -e probe:mlx5e_configure_flower: -e probe:mlx5e_configure_flower__return: | awk '{print $4}' |\
-#	sed s/:// | sed -e 'N;s/\n/ /' >> fl_change.dat
-# Serialize per process, and then per timestamp
-grep -e "mlx5e_configure_flower$" -e "mlx5e_configure_flower__return" <<<"$pscript" |\
-	awk '{ print $2 }' |\
-	sed -e 'N;s/\n/ /' |\
-	sort -n >> $duration_file.dat
+	cat > $duration_file.plt <<-_EOF_
+	set terminal pngcairo size 1024,768 dashed
+	set output "$duration_file.png"
+	set title "Flower rule install performance\\nTime consumed and install rate\\n$title"
+	set xlabel "Datapath flows"
+	set ylabel "Time (s)"
+	set y2label "Cumulative time (s)"
+	set ytics nomirror
+	set y2tics
 
-cat > $duration_file.plt <<_EOF_
-set terminal pngcairo size 1024,768 dashed
-set output "$duration_file.png"
-set title "Flower rule install performance\\nTime consumed and install rate\\n$title"
-set xlabel "Datapath flows"
-set ylabel "Time (s)"
-set y2label "Cumulative time (s)"
-set ytics nomirror
-set y2tics
+	plot \\
+	     '$duration_file.dat' index 0 using (\$2-\$1) title 'fl\\_change call duration' with lines, \\
+	     '$duration_file.dat' index 1 using (\$2-\$1) title '${tc_new//_/\\_} call duration' with lines, \\
+	     '$duration_file.dat' index 2 using (\$2-\$1) title 'mlx5e\\_configure\\_flower call duration' with lines, \\
+	     '$duration_file.dat' index 0 using (\$2-\$1) title 'fl\\_change cumulative time' axes x1y2 with lines smooth cumulative, \\
+	     '$duration_file.dat' index 1 using (\$2-\$1) title '${tc_new//_/\\_} cumulative time' axes x1y2 with lines smooth cumulative, \\
+	     '$duration_file.dat' index 2 using (\$2-\$1) title 'mlx5e\\_configure\\_flower cumulative time' axes x1y2 with lines smooth cumulative
+	_EOF_
 
-plot \\
-     '$duration_file.dat' index 0 using (\$2-\$1) title 'fl\\_change call duration' with lines, \\
-     '$duration_file.dat' index 1 using (\$2-\$1) title '${tc_new//_/\\_} call duration' with lines, \\
-     '$duration_file.dat' index 2 using (\$2-\$1) title 'mlx5e\\_configure\\_flower call duration' with lines, \\
-     '$duration_file.dat' index 0 using (\$2-\$1) title 'fl\\_change cumulative time' axes x1y2 with lines smooth cumulative, \\
-     '$duration_file.dat' index 1 using (\$2-\$1) title '${tc_new//_/\\_} cumulative time' axes x1y2 with lines smooth cumulative, \\
-     '$duration_file.dat' index 2 using (\$2-\$1) title 'mlx5e\\_configure\\_flower cumulative time' axes x1y2 with lines smooth cumulative
-_EOF_
+	gnuplot $duration_file.plt
+}
 
-gnuplot $duration_file.plt
 
 #
 # Time spent dumping stats
 #
+stats()
+{
+	stats_file="fl_change-stats"
+	#sed -n "/ $start_time:/,/ $end_time:/{/probe:tc_dump_tfilter/p}" <<<"$script" |\
+	#	awk '{print $4}' | sed s/:// | sed -e 'N;s/\n/ /' > fl_change.dat
+	# Serialize per process, and then per timestamp
+	grep -e "tc_dump_tfilter$" -e "tc_dump_tfilter__return" <<<"$pscript" |\
+		sort |\
+		awk '{ print $2 }' |\
+		sed -e 'N;s/\n/ /' |\
+		sort -n \
+		> $stats_file.dat
 
-stats_file="fl_change-stats"
-#sed -n "/ $start_time:/,/ $end_time:/{/probe:tc_dump_tfilter/p}" <<<"$script" |\
-#	awk '{print $4}' | sed s/:// | sed -e 'N;s/\n/ /' > fl_change.dat
-# Serialize per process, and then per timestamp
-grep -e "tc_dump_tfilter$" -e "tc_dump_tfilter__return" <<<"$pscript" |\
-	sort |\
-	awk '{ print $2 }' |\
-	sed -e 'N;s/\n/ /' |\
-	sort -n \
-	> $stats_file.dat
+	cat > $stats_file.plt <<-_EOF_
+	set terminal pngcairo size 1024,768 dashed
+	set output "$stats_file.png"
+	set title "Stats monitoring impact, call duration and acumulated time\n$title"
+	set xlabel "Test time (s)"
+	set ylabel "Time spent (s)"
+	set y2label "Cumulative time (s)"
+	set ytics nomirror
+	set y2tics
 
-cat > $stats_file.plt <<_EOF_
-set terminal pngcairo size 1024,768 dashed
-set output "$stats_file.png"
-set title "Stats monitoring impact, call duration and acumulated time\n$title"
-set xlabel "Test time (s)"
-set ylabel "Time spent (s)"
-set y2label "Cumulative time (s)"
-set ytics nomirror
-set y2tics
+	plot \\
+	     '$stats_file.dat' index 0 using (\$1-$start_time):(\$2-\$1) title 'tc\\_dump\\_tfilter call duration' with points, \\
+	     '$stats_file.dat' index 0 using (\$1-$start_time):(\$2-\$1) title "acumulated call duration" axes x1y2 with lines smooth cumulative
+	_EOF_
 
-plot \\
-     '$stats_file.dat' index 0 using (\$1-$start_time):(\$2-\$1) title 'tc\\_dump\\_tfilter call duration' with points, \\
-     '$stats_file.dat' index 0 using (\$1-$start_time):(\$2-\$1) title "acumulated call duration" axes x1y2 with lines smooth cumulative
-_EOF_
+	if grep -q . $stats_file.dat; then
+		gnuplot $stats_file.plt
+	else
+		rm -f $stats_file.png
+	fi
+}
 
-if grep -q . $stats_file.dat; then
-	gnuplot $stats_file.plt
-else
-	rm -f $stats_file.png
-fi
+
+rate &
+call_duration &
+stats &
+wait
