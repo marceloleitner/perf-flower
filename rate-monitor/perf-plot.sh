@@ -59,7 +59,8 @@ echo "End time: $end_time"
 echo "Test duration: $(echo "($end_time-$start_time)" | bc)"
 echo "Avg insert rate: $(echo "$inserts/($end_time-$start_time)" | bc)"
 echo "Avg delete rate: $(echo "$deletes/($end_time-$start_time)" | bc)"
-echo "Avg change rate: $(echo "$changes/($end_time-$start_time)" | bc)"
+avgchange=$(echo "$changes/($end_time-$start_time)" | bc)
+echo "Avg change rate: $avgchange"
 echo "Kernel: $kernel"
 
 # Common title across the graphs
@@ -86,7 +87,7 @@ set y2tics
 
 plot \\
      '$rate_file.dat' using (\$1-$first) title "Time" with lines, \\
-     '$rate_file.dat' every ::1 using :(\$0/(\$1-$first) < 100000 ? \$0/(\$1-$first) : 0) \\
+     '$rate_file.dat' every ::1 using :(\$0/(\$1-$first) < $((avgchange*4)) ? \$0/(\$1-$first) : 0) \\
         title 'fl\\_change rate' axes x1y2 with lines
 _EOF_
 
