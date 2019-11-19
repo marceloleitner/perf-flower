@@ -184,7 +184,7 @@ stats()
 
 	plot \\
 	     '$stats_file.dat' index 0 using (\$1-$start_time):(\$2-\$1) title 'tc\\_dump\\_tfilter call duration' with points, \\
-	     '$stats_file.dat' index 0 using (\$1-$start_time):(\$2-\$1) title "acumulated call duration" axes x1y2 with lines smooth cumulative
+	     '$stats_file.dat' index 0 using (\$1-$start_time):(\$2-\$1) title "cumulative call duration" axes x1y2 with lines smooth cumulative
 	_EOF_
 
 	if grep -q . $stats_file.dat; then
