@@ -106,7 +106,8 @@ call_duration()
 	#perf script | grep -e probe:fl_change: -e probe:fl_change__return: | awk '{print $4}' |\
 	#	sed s/:// | sed -e 'N;s/\n/ /' > fl_change.dat
 	# Serialize per process, and then per timestamp
-	grep -e 'fl_change$' -e 'fl_change__return' <<<"$pscript" |\
+	# The regexp only prints the entry point if it finds a corresponding exit point
+	sed -n "/fl_change$/h;/fl_change__return/{x;p;x;p}" <<<"$pscript" |\
 		awk '{ print $2 }' |\
 		sed -e 'N;s/\n/ /' |\
 		sort -n > $duration_file.dat
@@ -117,7 +118,8 @@ call_duration()
 	#perf script | grep -e probe:$tc_new: -e probe:${tc_new}__return: | awk '{print $4}' |\
 	#	sed s/:// | sed -e 'N;s/\n/ /' >> fl_change.dat
 	# Serialize per process, and then per timestamp
-	grep -e "${tc_new}$" -e "${tc_new}__return" <<<"$pscript" |\
+	# The regexp only prints the entry point if it finds a corresponding exit point
+	sed -n "/${tc_new}$/h;/${tc_new}__return/{x;p;x;p}" <<<"$pscript" |\
 		awk '{ print $2 }' |\
 		sed -e 'N;s/\n/ /' |\
 		sort -n >> $duration_file.dat
@@ -128,7 +130,8 @@ call_duration()
 	#perf script | grep -e probe:mlx5e_configure_flower: -e probe:mlx5e_configure_flower__return: | awk '{print $4}' |\
 	#	sed s/:// | sed -e 'N;s/\n/ /' >> fl_change.dat
 	# Serialize per process, and then per timestamp
-	grep -e "mlx5e_configure_flower$" -e "mlx5e_configure_flower__return" <<<"$pscript" |\
+	# The regexp only prints the entry point if it finds a corresponding exit point
+	sed -n "/mlx5e_configure_flower$/h;/mlx5e_configure_flower__return/{x;p;x;p}" <<<"$pscript" |\
 		awk '{ print $2 }' |\
 		sed -e 'N;s/\n/ /' |\
 		sort -n >> $duration_file.dat
@@ -165,7 +168,8 @@ stats()
 	#sed -n "/ $start_time:/,/ $end_time:/{/probe:tc_dump_tfilter/p}" <<<"$script" |\
 	#	awk '{print $4}' | sed s/:// | sed -e 'N;s/\n/ /' > fl_change.dat
 	# Serialize per process, and then per timestamp
-	grep -e "tc_dump_tfilter$" -e "tc_dump_tfilter__return" <<<"$pscript" |\
+	# The regexp only prints the entry point if it finds a corresponding exit point
+	sed -n '/tc_dump_tfilter$/h;/tc_dump_tfilter__return/{x;p;x;p}' <<<"$pscript" |\
 		sort |\
 		awk '{ print $2 }' |\
 		sed -e 'N;s/\n/ /' |\
