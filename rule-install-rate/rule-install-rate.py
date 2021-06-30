@@ -393,6 +393,10 @@ def install_sw_probe():
     install_probe_codeline('fl_change_sw', 'if (!fold && fl_lookup(fnew->mask, &fnew->mkey))')
 
 def install_hw_probe():
+    ret = os.system('perf probe -m cls_flower -a flower:fl_change_hw=fl_hw_replace_filter')
+    if not ret:
+        return
+
     install_probe_codeline('fl_change_hw', 'err = fl_hw_replace_filter')
 
 def install_fold_probe():
